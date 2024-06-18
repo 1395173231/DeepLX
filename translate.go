@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	fhttp "github.com/bogdanfinn/fhttp"
+	tls_client "github.com/bogdanfinn/tls-client"
 	"io"
 	"log"
 	"net/http"
@@ -156,7 +158,7 @@ func translateByDeepLX(sourceLang string, targetLang string, translateText strin
 	// Creating a new HTTP POST request with the JSON data as the body
 	post_byte = []byte(postStr)
 	reader := bytes.NewReader(post_byte)
-	request, err := http.NewRequest("POST", www2URL, reader)
+	request, err := fhttp.NewRequest("POST", www2URL, reader)
 
 	if err != nil {
 		log.Println(err)
@@ -180,21 +182,11 @@ func translateByDeepLX(sourceLang string, targetLang string, translateText strin
 	request.Header.Set("Connection", "keep-alive")
 
 	// Making the HTTP request to the DeepL API
-	var client *http.Client
+	var client tls_client.HttpClient
 	if proxyURL != "" {
-		proxy, err := url.Parse(proxyURL)
-		if err != nil {
-			return DeepLXTranslationResult{
-				Code:    http.StatusServiceUnavailable,
-				Message: "Uknown error",
-			}, nil
-		}
-		transport := &http.Transport{
-			Proxy: http.ProxyURL(proxy),
-		}
-		client = &http.Client{Transport: transport}
+		client = GetTLSClient(proxyURL)
 	} else {
-		client = &http.Client{}
+		client = GetTLSClient("")
 	}
 
 	resp, err := client.Do(request)

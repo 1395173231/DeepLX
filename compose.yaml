@@ -2,10 +2,12 @@ version: '3.8'
 
 services:
   deeplx:
-    image: ghcr.io/owo-network/deeplx:latest
+    image: ahhhliu/deeplx:latest
     restart: always
     ports:
       - "1188:1188"
+    env_file:
+      - .env
     # environment:
       # - TOKEN=helloworld
       # - AUTHKEY=xxxxxxx:fx

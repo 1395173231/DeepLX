@@ -14,6 +14,8 @@ package main
 
 import (
 	"encoding/json"
+	tls_client "github.com/bogdanfinn/tls-client"
+	"github.com/bogdanfinn/tls-client/profiles"
 	"io"
 	"math/rand"
 	"net/http"
@@ -69,4 +71,25 @@ func checkUsageAuthKey(authKey string) (bool, error) {
 		return false, err
 	}
 	return response.CharacterCount < 499900, nil
+}
+
+func GetTLSClient(proxy string) tls_client.HttpClient {
+	jar := tls_client.NewCookieJar()
+	options := []tls_client.HttpClientOption{
+		tls_client.WithClientProfile(profiles.Safari_Ipad_15_6),
+		tls_client.WithRandomTLSExtensionOrder(),
+		tls_client.WithCookieJar(jar),
+		tls_client.WithInsecureSkipVerify(),
+		tls_client.WithForceHttp1(),
+	}
+	if proxy != "" {
+		options = append(options, tls_client.WithProxyUrl(proxy))
+	} else {
+		options = append(options, tls_client.WithTimeoutSeconds(900))
+	}
+
+	// get env DEBUG and set log level
+	var client tls_client.HttpClient
+	client, _ = tls_client.NewHttpClient(tls_client.NewNoopLogger(), options...)
+	return client
 }
