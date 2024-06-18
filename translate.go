@@ -325,7 +325,7 @@ func translateByDeepLXPro(sourceLang string, targetLang string, translateText st
 	// Creating a new HTTP POST request with the JSON data as the body
 	post_byte = []byte(postStr)
 	reader := bytes.NewReader(post_byte)
-	request, err := http.NewRequest("POST", proURL, reader)
+	request, err := fhttp.NewRequest("POST", proURL, reader)
 
 	if err != nil {
 		log.Println(err)
@@ -346,21 +346,11 @@ func translateByDeepLXPro(sourceLang string, targetLang string, translateText st
 	request.Header.Set("Cookie", "dl_session="+dlSession)
 
 	// Making the HTTP request to the DeepL API
-	var client *http.Client
+	var client tls_client.HttpClient
 	if proxyURL != "" {
-		proxy, err := url.Parse(proxyURL)
-		if err != nil {
-			return DeepLXTranslationResult{
-				Code:    http.StatusServiceUnavailable,
-				Message: "DeepL API request failed",
-			}, nil
-		}
-		transport := &http.Transport{
-			Proxy: http.ProxyURL(proxy),
-		}
-		client = &http.Client{Transport: transport}
+		client = GetTLSClient(proxyURL)
 	} else {
-		client = &http.Client{}
+		client = GetTLSClient("")
 	}
 	resp, err := client.Do(request)
 	if err != nil {
