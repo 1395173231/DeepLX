@@ -167,7 +167,10 @@ func translateByDeepLX(sourceLang string, targetLang string, translateText strin
 			Message: "Post request failed",
 		}, nil
 	}
-
+	ip, err2 := RandomIPFromRanges()
+	if err2 != nil {
+		return DeepLXTranslationResult{}, err2
+	}
 	// Setting HTTP headers to mimic a request from the DeepL iOS App
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Accept", "*/*")
@@ -180,7 +183,7 @@ func translateByDeepLX(sourceLang string, targetLang string, translateText strin
 	request.Header.Set("x-app-build", "510265")
 	request.Header.Set("x-app-version", "2.9.1")
 	request.Header.Set("Connection", "keep-alive")
-
+	request.Header.Set("Cf-Connecting-Ip", ip.String())
 	// Making the HTTP request to the DeepL API
 	var client tls_client.HttpClient
 	if proxyURL != "" {

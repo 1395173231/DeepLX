@@ -18,7 +18,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -58,6 +60,42 @@ func authMiddleware(cfg *Config) gin.HandlerFunc {
 	}
 }
 
+var sem chan struct{} // 使用channel作为信号量
+
+func init() {
+	// 初始化并发限制的大小
+	concurrencyLimit := 200 // 同时允许处理的最大请求数
+	limit := os.Getenv("CONCURRENCY_LIMIT")
+	if limit != "" {
+		var err error
+		concurrencyLimit, err = strconv.Atoi(limit)
+		if concurrencyLimit <= 0 || err != nil {
+			concurrencyLimit = 200
+		}
+	}
+
+	sem = make(chan struct{}, concurrencyLimit)
+}
+
+func concurrencyLimitMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		select {
+		case sem <- struct{}{}:
+			// 成功占用一个并发位置
+			defer func() { <-sem }()
+			c.Next()
+		case <-time.After(2 * time.Second):
+			// 超过等待时间还没有可用位置
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"code":    http.StatusTooManyRequests,
+				"message": "Server is too busy. Please try again later.",
+			})
+			c.Abort()
+			return
+		}
+	}
+}
+
 func main() {
 	cfg := initConfig()
 
@@ -90,6 +128,7 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	r.Use(cors.Default())
+	r.Use(concurrencyLimitMiddleware()) // Apply the rate limiting middleware globally
 
 	// Defining the root endpoint which returns the project details
 	r.GET("/", func(c *gin.Context) {

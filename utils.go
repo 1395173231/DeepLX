@@ -18,6 +18,7 @@ import (
 	"github.com/bogdanfinn/tls-client/profiles"
 	"io"
 	"math/rand"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -92,4 +93,56 @@ func GetTLSClient(proxy string) tls_client.HttpClient {
 	var client tls_client.HttpClient
 	client, _ = tls_client.NewHttpClient(tls_client.NewNoopLogger(), options...)
 	return client
+}
+
+var CFIPRanges = []string{
+	"103.21.244.0/22",
+	"103.22.200.0/22",
+	"103.31.4.0/22",
+	"104.16.0.0/13",
+	"104.24.0.0/14",
+	"108.162.192.0/18",
+	"131.0.72.0/22",
+	"141.101.64.0/18",
+	"162.158.0.0/15",
+	"172.64.0.0/13",
+	"173.245.48.0/20",
+	"188.114.96.0/20",
+	"190.93.240.0/20",
+	"197.234.240.0/22",
+	"198.41.128.0/17",
+}
+
+func randomIPFromRanges(ranges []string) (net.IP, error) {
+	// 随机选择一个IP段
+	rand.NewSource(time.Now().UnixNano())
+	randomIndex := rand.Intn(len(ranges))
+	selectedRange := ranges[randomIndex]
+
+	// 解析CIDR以获取IP范围
+	_, ipnet, err := net.ParseCIDR(selectedRange)
+	if err != nil {
+		return nil, err
+	}
+
+	// 随机生成IP地址
+	randomIP := make(net.IP, len(ipnet.IP))
+	for {
+		copy(randomIP, ipnet.IP)
+		for i := range randomIP {
+			if ipnet.Mask[i] == 0xff {
+				continue
+			}
+			randomIP[i] |= byte(rand.Intn(256) & ^int(ipnet.Mask[i]))
+		}
+		if ipnet.Contains(randomIP) {
+			break
+		}
+	}
+
+	return randomIP, nil
+}
+
+func RandomIPFromRanges() (net.IP, error) {
+	return randomIPFromRanges(CFIPRanges)
 }
