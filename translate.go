@@ -2,17 +2,14 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	fhttp "github.com/bogdanfinn/fhttp"
 	tls_client "github.com/bogdanfinn/tls-client"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/abadojack/whatlanggo"
 	"github.com/andybalholm/brotli"
@@ -161,7 +158,7 @@ func translateByDeepLX(sourceLang string, targetLang string, translateText strin
 	// Creating a new HTTP POST request with the JSON data as the body
 	post_byte = []byte(postStr)
 	reader := bytes.NewReader(post_byte)
-	request, err := http.NewRequest("POST", www2URL, reader)
+	request, err := fhttp.NewRequest("POST", www2URL, reader)
 
 	if err != nil {
 		log.Println(err)
@@ -172,7 +169,6 @@ func translateByDeepLX(sourceLang string, targetLang string, translateText strin
 	}
 
 	// Setting HTTP headers to mimic a request from the DeepL iOS App
-	request.Header.Set("Host", "www2.deepl.com")
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Accept", "*/*")
 	request.Header.Set("x-app-os-name", "iOS")
@@ -185,30 +181,12 @@ func translateByDeepLX(sourceLang string, targetLang string, translateText strin
 	request.Header.Set("x-app-version", "2.9.1")
 	request.Header.Set("Connection", "keep-alive")
 
-	//// Making the HTTP request to the DeepL API
-	//var client tls_client.HttpClient
-	//if proxyURL != "" {
-	//	client = GetTLSClient(proxyURL)
-	//} else {
-	//	client = GetTLSClient("")
-	//}
-	client := &http.Client{
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				// 检查请求的域名
-				if addr == "www2.deepl.com:80" {
-					addr = "msteams.dub.deepl.com:80"
-				}
-				if addr == "www2.deepl.com:443" {
-					addr = "msteams.dub.deepl.com:443"
-				}
-				dialer := &net.Dialer{
-					Timeout:   30 * time.Second,
-					KeepAlive: 30 * time.Second,
-				}
-				return dialer.DialContext(ctx, network, addr)
-			},
-		},
+	// Making the HTTP request to the DeepL API
+	var client tls_client.HttpClient
+	if proxyURL != "" {
+		client = GetTLSClient(proxyURL)
+	} else {
+		client = GetTLSClient("")
 	}
 
 	resp, err := client.Do(request)
@@ -221,21 +199,6 @@ func translateByDeepLX(sourceLang string, targetLang string, translateText strin
 	}
 	defer resp.Body.Close()
 
-	//if !resp.Uncompressed {
-	//	resp.Body = fhttp.DecompressBody(resp)
-	//}
-	if resp.StatusCode != http.StatusOK {
-		log.Println(resp.StatusCode)
-		bodyBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return DeepLXTranslationResult{}, err
-		}
-		log.Println(string(bodyBytes))
-		return DeepLXTranslationResult{
-			Code:    http.StatusServiceUnavailable,
-			Message: "DeepL API request failed",
-		}, nil
-	}
 	// Handling potential Brotli compressed response body
 	var bodyReader io.Reader
 	switch resp.Header.Get("Content-Encoding") {
@@ -244,6 +207,7 @@ func translateByDeepLX(sourceLang string, targetLang string, translateText strin
 	default:
 		bodyReader = resp.Body
 	}
+
 	// Reading the response body and parsing it with gjson
 	body, _ := io.ReadAll(bodyReader)
 	// body, _ := io.ReadAll(resp.Body)
@@ -293,7 +257,6 @@ func translateByDeepLX(sourceLang string, targetLang string, translateText strin
 			return true
 		})
 		if res.Get("result.texts.0.text").String() == "" {
-			log.Println(res.Raw)
 			return DeepLXTranslationResult{
 				Code:    http.StatusServiceUnavailable,
 				Message: "Translation failed, API returns an empty result.",
@@ -371,7 +334,7 @@ func translateByDeepLXPro(sourceLang string, targetLang string, translateText st
 			Message: "Post request failed",
 		}, nil
 	}
-	request.Header.Set("Host", "api.deepl.com")
+
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Accept", "*/*")
 	request.Header.Set("Accept-Language", "en-US,en;q=0.9")

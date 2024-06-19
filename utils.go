@@ -80,7 +80,7 @@ func GetTLSClient(proxy string) tls_client.HttpClient {
 		tls_client.WithRandomTLSExtensionOrder(),
 		tls_client.WithCookieJar(jar),
 		tls_client.WithInsecureSkipVerify(),
-		//tls_client.WithForceHttp1(),
+		tls_client.WithForceHttp1(),
 	}
 	if proxy != "" {
 		options = append(options, tls_client.WithProxyUrl(proxy))
