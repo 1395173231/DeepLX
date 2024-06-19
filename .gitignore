@@ -1,2 +1,4 @@
 DeepLX
 .env
+**/node_modules
+**/build
