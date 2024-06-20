@@ -149,30 +149,37 @@ func main() {
 		authKey := cfg.AuthKey
 		proxyURL := cfg.Proxy
 
-		result, err := translateByDeepLX(sourceLang, targetLang, translateText, authKey, proxyURL)
-		if err != nil {
-			log.Fatalf("Translation failed: %s", err)
+		maxRetries := 3 // 设置最大重试次数
+		var result DeepLXTranslationResult
+		var err error
+
+		for retries := 0; retries < maxRetries; retries++ {
+			result, err = translateByDeepLX(sourceLang, targetLang, translateText, authKey, proxyURL)
+			if err == nil && result.Code == http.StatusOK {
+				break
+			}
+			log.Printf("Translation attempt %d failed: %s", retries+1, err)
 		}
 
-		if result.Code == http.StatusOK {
-			c.JSON(http.StatusOK, gin.H{
-				"code":         http.StatusOK,
-				"id":           result.ID,
-				"data":         result.Data,
-				"alternatives": result.Alternatives,
-				"source_lang":  result.SourceLang,
-				"target_lang":  result.TargetLang,
-				"method":       result.Method,
-			})
-		} else {
+		if err != nil || result.Code != http.StatusOK {
+			// 达到最大重试次数仍然失败
 			c.JSON(result.Code, gin.H{
 				"code":    result.Code,
 				"message": result.Message,
 			})
-
+			return
 		}
-	})
 
+		c.JSON(http.StatusOK, gin.H{
+			"code":         http.StatusOK,
+			"id":           result.ID,
+			"data":         result.Data,
+			"alternatives": result.Alternatives,
+			"source_lang":  result.SourceLang,
+			"target_lang":  result.TargetLang,
+			"method":       result.Method,
+		})
+	})
 	// Pro API endpoint, Pro Account required
 	r.POST("/v1/translate", authMiddleware(cfg), func(c *gin.Context) {
 		req := PayloadFree{}
